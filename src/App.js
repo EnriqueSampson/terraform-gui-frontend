@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Container, List, ListItem, ListItemText, Typography } from '@mui/material';
+import React  from 'react';
+import { Container, Typography } from '@mui/material';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import RDSInstancesList from './RDSInstancesList';
+import GlueTablesList from './GlueTablesList';
+import S3BucketsList from './S3BucketsList';
+import EC2InstancesList from './EC2InstancesList';
 
 function Navigation() {
     return (
@@ -11,47 +14,22 @@ function Navigation() {
                 <Link to="/buckets" className="text-white hover:text-gray-300">Buckets</Link>
                 <Link to="/instances" className="text-white hover:text-gray-300">Instances</Link>
                 <Link to="/rds-instances" className="text-white hover:text-gray-300">RDS Instances</Link>
+                <Link to="/glue-tables" className="text-white hover:text-gray-300">Glue Tables</Link>
             </div>
         </nav>
     );
 }
 
 function App() {
-  const [buckets, setBuckets] = useState([]);
-  const [instances, setInstances] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    async function fetchData() {
-        setLoading(true);
-        setError('');
-      try {
-        const bucketsResponse = await fetch('http://localhost:3000/buckets');
-        const bucketsData = await bucketsResponse.json();
-        setBuckets(bucketsData);
-
-        const instancesResponse = await fetch('http://localhost:3000/instances');
-        const instancesData = await instancesResponse.json();
-        setInstances(instancesData);
-      } catch (error) {
-        setError('Failed to fetch data');
-        console.error('Error fetching data:', error);
-        console.error('Error fetching data:', error);
-      }
-        setLoading(false);
-    }
-
-    fetchData();
-  }, []);
 
     return (
         <Router>
             <Navigation />
             <Routes>
-                <Route path="/buckets" element={<BucketList buckets={buckets} loading={loading} error={error} />} />
-                <Route path="/instances" element={<InstanceList instances={instances} loading={loading} error={error} />} />
+                <Route path="/buckets" element={<S3BucketsList />} />
+                <Route path="/instances" element={<EC2InstancesList />} />
                 <Route path="/rds-instances" element={<RDSInstancesList />} />
+                <Route path="/glue-tables" element={<GlueTablesList />} />
                 <Route path="/" element={<Home />} />
             </Routes>
         </Router>
@@ -59,42 +37,6 @@ function App() {
 }
 
 export default App;
-
-function BucketList({ buckets, loading, error }) {
-    if (loading) return <div>Loading...</div>;
-    if (error) return <div>Error: {error}</div>;
-
-    return (
-        <Container className="mt-10">
-            <Typography variant="h5" gutterBottom className="text-lg font-semibold">S3 Buckets:</Typography>
-            <List className="bg-white rounded shadow">
-                {buckets.map(bucket => (
-                    <ListItem key={bucket.Name} className="border-b border-gray-200">
-                        <ListItemText primary={bucket.Name} />
-                    </ListItem>
-                ))}
-            </List>
-        </Container>
-    );
-}
-
-function InstanceList({ instances, loading, error }) {
-    if (loading) return <div>Loading...</div>;
-    if (error) return <div>Error: {error}</div>;
-
-    return (
-        <Container className="mt-10">
-            <Typography variant="h5" gutterBottom className="text-lg font-semibold">EC2 Instances:</Typography>
-            <List className="bg-white rounded shadow">
-                {instances.map(instance => (
-                    <ListItem key={instance.InstanceId} className="border-b border-gray-200">
-                        <ListItemText primary={`Instance ID: ${instance.InstanceId}`} />
-                    </ListItem>
-                ))}
-            </List>
-        </Container>
-    );
-}
 
 function Home() {
     return (

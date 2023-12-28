@@ -1,31 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { Container, List, ListItem, ListItemText, Typography } from '@mui/material';
+import { Container, List, ListItem, ListItemText, Typography, Button } from '@mui/material';
 
-function RDSInstancesList() {
-    const [instances, setInstances] = useState([]);
+function S3BucketsList() {
+    const [buckets, setBuckets] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
     useEffect(() => {
-        async function fetchRDSInstances() {
+        async function fetchS3Buckets() {
             setLoading(true);
             setError('');
             try {
-                const response = await fetch('http://localhost:3000/rds-instances');
+                const response = await fetch('http://localhost:3000/buckets');
                 if (!response.ok) {
                     throw new Error(`Error: ${response.status}`);
                 }
                 const data = await response.json();
-                setInstances(data);
+                setBuckets(data);
             } catch (err) {
-                setError('Failed to fetch RDS instances');
+                setError('Failed to fetch S3 buckets');
                 console.error('Error fetching data:', err);
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         }
 
-        fetchRDSInstances();
+        fetchS3Buckets();
     }, []);
+
+    if (loading) return <div>Loading...</div>;
+    if (error) return <div>Error: {error}</div>;
 
     const generateTerraform = async () => {
         try {
@@ -35,15 +39,15 @@ function RDSInstancesList() {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    resourceType: 'rds',
-                    resourceData: instances, // assuming 'instances' contains the RDS instance data
+                    resourceType: 's3',
+                    resourceData: buckets,
                 }),
             });
             if (!response.ok) {
                 throw new Error(`HTTP error! Status: ${response.status}`);
             }
             const terraformConfig = await response.text();
-            downloadFile(terraformConfig, 'rds-config.tf', 'text/plain');
+            downloadFile(terraformConfig, 's3-bucket-config.tf', 'text/plain');
         } catch (err) {
             console.error('Error:', err);
             setError('Failed to generate Terraform configuration');
@@ -53,21 +57,20 @@ function RDSInstancesList() {
     if (loading) return <div>Loading...</div>;
     if (error) return <div>Error: {error}</div>;
 
+
     return (
-        <Container>
-            <Typography variant="h5" gutterBottom>
-                AWS RDS Instances:
-            </Typography>
-            {loading && <div>Loading...</div>}
-            {error && <div>Error: {error}</div>}
-            <List>
-                {instances.map((instance, index) => (
-                    <ListItem key={index}>
-                        <ListItemText primary={instance.DBInstanceIdentifier} secondary={`Status: ${instance.DBInstanceStatus}`} />
+        <Container className="mt-10">
+            <Typography variant="h5" gutterBottom className="text-lg font-semibold">S3 Buckets:</Typography>
+            <List className="bg-white rounded shadow">
+                {buckets.map(bucket => (
+                    <ListItem key={bucket.Name} className="border-b border-gray-200">
+                        <ListItemText primary={bucket.Name} />
                     </ListItem>
                 ))}
             </List>
-            <button onClick={generateTerraform}>Generate Terraform Config</button>
+            <Button variant="contained" color="primary" onClick={generateTerraform}>
+                Generate Terraform Config
+            </Button>
         </Container>
     );
 }
@@ -81,4 +84,4 @@ function downloadFile(content, fileName, contentType) {
     a.click();
 }
 
-export default RDSInstancesList;
+export default S3BucketsList;
