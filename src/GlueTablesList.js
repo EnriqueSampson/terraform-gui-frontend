@@ -33,14 +33,37 @@ function GlueTablesList() {
         fetchGlueTables();
     }, []);
 
-    const handleClick = (dbName) => {
+    const fetchTablesForDatabase = async (databaseName) => {
+        try {
+            const response = await fetch(`http://localhost:3000/glue-tables/${databaseName}`);
+            if (!response.ok) {
+                throw new Error(`Error: ${response.status}`);
+            }
+            return await response.json();
+        } catch (err) {
+            console.error('Error fetching tables:', err);
+            throw err;
+        }
+    };
+
+
+    const handleClick = async (dbName) => {
+        if (!open[dbName]) {
+            try {
+                const tables = await fetchTablesForDatabase(dbName);
+                setData(data.map(db => db.database === dbName ? { ...db, tables: tables } : db));
+            } catch (err) {
+                console.error('Error fetching tables for database:', err);
+                setError(`Failed to fetch tables for ${dbName}`);
+            }
+        }
         setOpen({ ...open, [dbName]: !open[dbName] });
     };
 
     return (
         <Container>
             <Typography variant="h5" gutterBottom>
-                AWS Glue Databases and Tables:
+                AWS Glue Databases, Tables, and Schemas:
             </Typography>
             {loading && <div>Loading...</div>}
             {error && <div>Error: {error}</div>}
@@ -55,7 +78,9 @@ function GlueTablesList() {
                             <List component="div" disablePadding>
                                 {tables.map((table, index) => (
                                     <ListItem key={index} style={{ paddingLeft: 30 }}>
-                                        <ListItemText primary={table.Name} />
+                                        <ListItemText primary={table.name} secondary={
+                                            table.schema.map(col => `${col.Name} (${col.Type})`).join(', ')
+                                        } />
                                     </ListItem>
                                 ))}
                             </List>
