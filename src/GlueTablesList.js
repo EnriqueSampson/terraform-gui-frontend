@@ -1,12 +1,64 @@
 import React, { useState, useEffect } from 'react';
-import { Container, List, ListItem, ListItemText, Typography, Collapse } from '@mui/material';
-import { ExpandLess, ExpandMore } from '@mui/icons-material';
+import {
+    Container,
+    List,
+    ListItem,
+    ListItemText,
+    Typography,
+    Collapse,
+    TextField,
+    MenuItem,
+    FormControl,
+    Select,
+    InputLabel,
+} from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+
+const schemaTypes = ['String', 'Integer', 'Boolean', 'Double', 'Binary', 'Date', 'Timestamp', 'Array', 'Map', 'Struct']; // This should be outside the component
+
 
 function GlueTablesList() {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [open, setOpen] = useState({});
+    const [openTable, setOpenTable] = useState({}); // Added state for tracking open tables
+
+    const handleTableClick = (tableName) => { // Implement the handleTableClick function
+        setOpenTable(prevOpenTable => ({
+            ...prevOpenTable,
+            [tableName]: !prevOpenTable[tableName],
+        }));
+    };
+
+    // Function to update the schema details in state
+    const handleSchemaChange = (databaseName, tableName, columnIndex, key, value) => {
+        setData(prevData => {
+            return prevData.map(db => {
+                if (db.database === databaseName) {
+                    return {
+                        ...db,
+                        tables: db.tables.map(table => {
+                            if (table.name === tableName) {
+                                return {
+                                    ...table,
+                                    schema: table.schema.map((col, index) => {
+                                        if (index === columnIndex) {
+                                            return { ...col, [key]: value };
+                                        }
+                                        return col;
+                                    })
+                                };
+                            }
+                            return table;
+                        })
+                    };
+                }
+                return db;
+            });
+        });
+    };
 
     useEffect(() => {
         async function fetchGlueTables() {
@@ -49,20 +101,28 @@ function GlueTablesList() {
 
     const handleClick = async (dbName) => {
         if (!open[dbName]) {
+            setLoading(true);
             try {
                 const tables = await fetchTablesForDatabase(dbName);
-                setData(data.map(db => db.database === dbName ? { ...db, tables: tables } : db));
+                setData(prevData => prevData.map(db => {
+                    if (db.database === dbName) {
+                        return { ...db, tables };
+                    }
+                    return db;
+                }));
             } catch (err) {
                 console.error('Error fetching tables for database:', err);
                 setError(`Failed to fetch tables for ${dbName}`);
+            } finally {
+                setLoading(false);
             }
         }
-        setOpen({ ...open, [dbName]: !open[dbName] });
+        setOpen(prevOpen => ({ ...prevOpen, [dbName]: !prevOpen[dbName] }));
     };
 
     return (
-        <Container>
-            <Typography variant="h5" gutterBottom>
+        <Container className="mx-auto p-4">
+            <Typography variant="h5" gutterBottom className="text-left font-bold">
                 AWS Glue Databases, Tables, and Schemas:
             </Typography>
             {loading && <div>Loading...</div>}
@@ -70,18 +130,48 @@ function GlueTablesList() {
             <List>
                 {data.map(({ database, tables }) => (
                     <React.Fragment key={database}>
-                        <ListItem button onClick={() => handleClick(database)}>
+                        <ListItem button onClick={() => handleClick(database)} className="text-left">
                             <ListItemText primary={database} />
-                            {open[database] ? <ExpandLess /> : <ExpandMore />}
+                            {open[database] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                         </ListItem>
                         <Collapse in={open[database]} timeout="auto" unmountOnExit>
                             <List component="div" disablePadding>
-                                {tables.map((table, index) => (
-                                    <ListItem key={index} style={{ paddingLeft: 30 }}>
-                                        <ListItemText primary={table.name} secondary={
-                                            table.schema.map(col => `${col.Name} (${col.Type})`).join(', ')
-                                        } />
-                                    </ListItem>
+                                {tables.map((table, tableIndex) => (
+                                    <React.Fragment key={table.name}>
+                                        <ListItem button onClick={() => handleTableClick(table.name)} className="text-left">
+                                            <ListItemText primary={table.name} />
+                                            {openTable[table.name] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                                        </ListItem>
+                                        <Collapse in={openTable[table.name]} timeout="auto" unmountOnExit>
+                                            {table.schema.map((column, colIndex) => (
+                                                <div key={colIndex} className="flex flex-col p-2 border-b border-gray-200">
+                                                    <FormControl fullWidth className="mb-4"> {/* Add mb-4 for margin-bottom */}
+                                                        <TextField
+                                                            label="Column Name"
+                                                            variant="outlined"
+                                                            size="small"
+                                                            value={column.Name}
+                                                            onChange={(e) => handleSchemaChange(database, table.name, colIndex, 'Name', e.target.value)}
+                                                        />
+                                                    </FormControl>
+                                                    <FormControl fullWidth>
+                                                        <InputLabel id={`column-type-label-${colIndex}`}>Column Type</InputLabel>
+                                                        <Select
+                                                            labelId={`column-type-label-${colIndex}`}
+                                                            id={`column-type-select-${colIndex}`}
+                                                            value={column.Type}
+                                                            label="Column Type"
+                                                            onChange={(e) => handleSchemaChange(database, table.name, colIndex, 'Type', e.target.value)}
+                                                        >
+                                                            {schemaTypes.map((type, typeIndex) => (
+                                                                <MenuItem key={typeIndex} value={type}>{type}</MenuItem>
+                                                            ))}
+                                                        </Select>
+                                                    </FormControl>
+                                                </div>
+                                            ))}
+                                        </Collapse>
+                                    </React.Fragment>
                                 ))}
                             </List>
                         </Collapse>
